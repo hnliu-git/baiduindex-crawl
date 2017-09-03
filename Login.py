@@ -112,12 +112,13 @@ def deal(name,year,month,day,path):
     xoyelement = browser.find_elements_by_css_selector("#trend rect")[2]
     ActionChains(browser).move_to_element_with_offset(xoyelement, x_0, y_0).perform()
     for i in range(61):
-        day=int(day)+1
-        if int(day)==dict[str(fmonth)]+1:
+        if int(day)>=dict[str(fmonth)]+1:
             day=1
             fmonth=int(fmonth)+1
         if fmonth==13:
             fyear=int(fyear)+1
+            fmonth=1
+        day = int(day) + 1
         time.sleep(1)
         imgelement = browser.find_element_by_xpath('//div[@id="viewbox"]')
         locations = imgelement.location
@@ -185,12 +186,12 @@ def do(year):
 
 if __name__ == '__main__':
     openbrowser()
-    # do(2010)
-    # do(2011)
-    # do(2012)
-    # do(2013)
-    # do(2014)
-    # do(2015)
+    do(2010)
+    do(2011)
+    do(2012)
+    do(2013)
+    do(2014)
+    do(2015)
     do(2016)
     do(2017)
 
