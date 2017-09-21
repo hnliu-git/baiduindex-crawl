@@ -170,14 +170,24 @@ def CollectIndex(Monthdict,path,fyear,fmonth,day,name,year,filename):
         day = int(day) + 1
         time.sleep(1)
         code = GetTheFxxkingCode(fyear, fmonth, day, name, path, xoyelement, x_0, y_0)
+	cot=0
+	jud=True
         while(code==None):
+	    cot+=1
             code=GetTheFxxkingCode(fyear,fmonth,day,name,path,xoyelement,x_0, y_0)
-        print code.group()
+	    if cot>=6:
+		jud=False
+		break
+	if jue:
+	   anwserCode=code.group()
+	else:
+	   anwserCode=str(-1)
+        print anwserCode
         if int(day)<10:
             day='0'+str(int(day))
         if int(fmonth)<10:
             fmonth='0'+str(int(fmonth))
-        wf.write(str(fyear)+'-'+str(fmonth)+'-'+str(day)+':'+code.group()+',')
+        wf.write(str(fyear)+'-'+str(fmonth)+'-'+str(day)+':'+anwserCode+',')
         x_0 = x_0 + 13.51
     wf.write(']\n')
     wf.close()
