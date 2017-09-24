@@ -24,33 +24,48 @@ def openbrowser():
         if jud==1:
             break
 
-#计算需要选择的日期
-def CalculateDate(year,month,day):
-    if year=='2010':
-        fyear=2011
-        fmonth='01'
-    else:
-        fyear=year
-        if int(month)==1:
-            fmonth='12'
-            fyear=year-1
-        else:
-            fmonth=int(month)-1
-    if len(fmonth)<2:
-        fmonth='0'+fmonth
-    if year=='2010':
-        ayear=2011
-        amonth='03'
-    else:
-        ayear=year
-        if int(month) + 1==13:
-            amonth = '01'
-            ayear=int(year)+1
-        else:
-            amonth = int(month) + 1
-    if(len(amonth)<2):
-       amonth='0'+amonth
-    return fyear,fmonth,ayear,amonth
+#从文件获取名字和日期
+def GetDateFromFile(fr):
+    line = fr.readline()
+    # 得到名字
+    name = line.split(":")[1].replace("\n", "")
+    fr.readline()
+    # 得到日期
+    date = fr.readline().split(":")[1].replace("\n", "").split("（")[0]
+    day = date.split("-")[2]
+    month = date.split("-")[1]
+    year = date.split("-")[0]
+    return name,day,month,year,date
+
+
+def StartCrawl(year):
+    # 电影名字和上映日期的文件所在文件位置
+    rootdir = "/home/hadoop/桌面/MovieComp/MovieDescriptionData/" + str(year)
+    for parent, dirnames, filenames in os.walk(rootdir):
+        for filename in filenames:
+            path = rootdir + "/" + filename
+            with open(path) as fr:
+                name,day,month,year,date=GetDateFromFile(fr)
+                print filename, name
+                # 设置爬取保存位置
+                moviepath = "/home/hadoop/桌面/MovieComp/MovieBaiduIndex/RawJpg/" + str(
+                    year) + "/" + filename + "(" + date + ")"
+                if os.path.exists(moviepath):
+                    continue
+                else:
+                    os.mkdir(moviepath)
+                    os.mkdir(moviepath + "/" + "raw")
+                    os.mkdir(moviepath + "/" + "crop")
+                    os.mkdir(moviepath + "/" + "zoom")
+                try:
+                    deal(name.decode("utf-8"), year, month, day, moviepath,filename)
+                except:
+                    # 错误记录
+                    with open("/home/hadoop/桌面/errorRecord"+otherStyleTime,"w") as f:
+                        f.write(name+str(filename))
+                        f.write(str(year))
+                        f.write('\n')
+                    print name, filename,year,"Error"
 
 # name 关键词（电影）
 # year,month,day 电影的上映日期
@@ -90,56 +105,34 @@ def deal(name,year,month,day,path,filename):
         Monthdict['02'] = 29
     CollectIndex(Monthdict,path,fyear,fmonth,day,name,year,filename)
 
-def ExistBox(browser):
-    try:
-        browser.find_element_by_xpath('//div[@id="viewbox"]')
-        return True
-    except:
-        return False
 
-
-def GetTheFxxkingCode(fyear,fmonth,day,name,path,xoyelement,x_0, y_0):
-    ActionChains(browser).move_to_element_with_offset(xoyelement, x_0, y_0).perform()
-    while (ExistBox(browser)==False):
-        ActionChains(browser).move_to_element_with_offset(xoyelement, x_0, y_0).perform()
-        if ExistBox(browser)==True:
-            break
-    imgelement = browser.find_element_by_xpath('//div[@id="viewbox"]')
-    locations = imgelement.location
-    printString = str(fyear) + "-" + str(fmonth) + "-" + str(day)
-    # 找到图片位置
-    l = len(name)
-    if l > 8:
-        l = 8
-    rangle = (int(int(locations['x'])) + l * 12 + 32, int(int(locations['y'])) + 28,
-              int(int(locations['x'])) + l * 12 + 32 + 70,
-              int(int(locations['y'])) + 56)
-    browser.save_screenshot(str(path) + "/raw/" + printString + ".png")
-    img = Image.open(str(path) + "/raw/" + printString + ".png")
-    if locations['x'] != 0.0:
-        jpg = img.crop(rangle)
-        imgpath = str(path) + "/crop/" + printString + ".jpg"
-        jpg.save(imgpath)
-        jpgzoom = Image.open(str(imgpath))
-        (x, y) = jpgzoom.size
-        x_s = 60 * 10
-        y_s = 20 * 10
-        out = jpgzoom.resize((x_s, y_s), Image.ANTIALIAS)
-        out.save(path + "/zoom/" + printString, 'jpeg', quality=95)
-        image = Image.open(path + "/zoom/" + printString)
-        code = pytesseract.image_to_string(image)
-        regex = "\d+"
-        pattern = re.compile(regex)
-        dealcode = code.replace("S", '5').replace(" ", "").replace(",", "").replace("E", "8").replace(".", ""). \
-            replace("'", "").replace(u"‘", "").replace("B", "8").replace("\"", "").replace("I", "1").replace(
-            "i", "").replace("-", ""). \
-            replace("$", "8").replace(u"’", "").strip()
-        match = pattern.search(dealcode)
-        return match
+#计算需要选择的日期——电影上映前后一个月
+def CalculateDate(year,month,day):
+    if year=='2010':
+        fyear=2011
+        fmonth='01'
     else:
-        return None
-
-
+        fyear=year
+        if int(month)==1:
+            fmonth='12'
+            fyear=year-1
+        else:
+            fmonth=int(month)-1
+    if len(fmonth)<2:
+        fmonth='0'+fmonth
+    if year=='2010':
+        ayear=2011
+        amonth='03'
+    else:
+        ayear=year
+        if int(month) + 1==13:
+            amonth = '01'
+            ayear=int(year)+1
+        else:
+            amonth = int(month) + 1
+    if(len(amonth)<2):
+       amonth='0'+amonth
+    return fyear,fmonth,ayear,amonth
 
 def CollectIndex(Monthdict,path,fyear,fmonth,day,name,year,filename):
     wf = open('/home/hadoop/桌面/MovieComp/MovieBaiduIndex/IndexData/' + str(year)+'/'+filename, 'a')
@@ -158,7 +151,7 @@ def CollectIndex(Monthdict,path,fyear,fmonth,day,name,year,filename):
     xoyelement = browser.find_elements_by_css_selector("#trend rect")[2]
     ActionChains(browser).move_to_element_with_offset(xoyelement, x_0, y_0).perform()
     for i in range(61):
-        #计算并且得到文件命名
+        #计算当前得到指数的时间
         if int(fmonth)<10:
             fmonth='0'+str(int(fmonth))
         if int(day)>=Monthdict[str(fmonth)]+1:
@@ -169,7 +162,9 @@ def CollectIndex(Monthdict,path,fyear,fmonth,day,name,year,filename):
                 fmonth=1
         day = int(day) + 1
         time.sleep(1)
+	#获取Code
         code = GetTheFxxkingCode(fyear, fmonth, day, name, path, xoyelement, x_0, y_0)
+	#ViewBox不出现的循环
 	cot=0
 	jud=True
         while(code==None):
@@ -178,7 +173,7 @@ def CollectIndex(Monthdict,path,fyear,fmonth,day,name,year,filename):
 	    if cot>=6:
 		jud=False
 		break
-	if jue:
+	if jud:
 	   anwserCode=code.group()
 	else:
 	   anwserCode=str(-1)
@@ -192,46 +187,60 @@ def CollectIndex(Monthdict,path,fyear,fmonth,day,name,year,filename):
     wf.write(']\n')
     wf.close()
 
-def GetDateFromFile(fr):
-    line = fr.readline()
-    # 得到名字
-    name = line.split(":")[1].replace("\n", "")
-    fr.readline()
-    # 得到日期
-    date = fr.readline().split(":")[1].replace("\n", "").split("（")[0]
-    day = date.split("-")[2]
-    month = date.split("-")[1]
-    year = date.split("-")[0]
-    return name,day,month,year,date
+def GetTheFxxkingCode(fyear,fmonth,day,name,path,xoyelement,x_0, y_0):
+    ActionChains(browser).move_to_element_with_offset(xoyelement, x_0, y_0).perform()
+    #鼠标重复操作直到ViewBox出现
+    while (ExistBox(browser)==False):
+        ActionChains(browser).move_to_element_with_offset(xoyelement, x_0, y_0).perform()
+        if ExistBox(browser)==True:
+            break
+    imgelement = browser.find_element_by_xpath('//div[@id="viewbox"]')
+    locations = imgelement.location
+    printString = str(fyear) + "-" + str(fmonth) + "-" + str(day)
+    # 找到图片位置
+    l = len(name)
+    if l > 8:
+        l = 8
+    rangle = (int(int(locations['x'])) + l * 12 + 32, int(int(locations['y'])) + 28,
+              int(int(locations['x'])) + l * 12 + 32 + 70,
+              int(int(locations['y'])) + 56)
+    #保存截图
+    browser.save_screenshot(str(path) + "/raw/" + printString + ".png")
+    img = Image.open(str(path) + "/raw/" + printString + ".png")
+    if locations['x'] != 0.0:
+         #按Rangle截取图片
+        jpg = img.crop(rangle)
+        imgpath = str(path) + "/crop/" + printString + ".jpg"
+        jpg.save(imgpath)
+        jpgzoom = Image.open(str(imgpath))
+        #放大图片
+        (x, y) = jpgzoom.size
+        x_s = 60 * 10
+        y_s = 20 * 10
+        out = jpgzoom.resize((x_s, y_s), Image.ANTIALIAS)
+        out.save(path + "/zoom/" + printString, 'jpeg', quality=95)
+        image = Image.open(path + "/zoom/" + printString)
+        #识别图片
+        code = pytesseract.image_to_string(image)
+        regex = "\d+"
+        pattern = re.compile(regex)
+        dealcode = code.replace("S", '5').replace(" ", "").replace(",", "").replace("E", "8").replace(".", ""). \
+            replace("'", "").replace(u"‘", "").replace("B", "8").replace("\"", "").replace("I", "1").replace(
+            "i", "").replace("-", ""). \
+            replace("$", "8").replace(u"’", "").strip()
+        match = pattern.search(dealcode)
+        return match
+    else:
+        return None
 
-def StartCrawl(year):
-    # 电影名字和上映日期的文件所在地
-    rootdir = "/home/hadoop/桌面/MovieComp/MovieDescriptionData/" + str(year)
-    for parent, dirnames, filenames in os.walk(rootdir):
-        for filename in filenames:
-            path = rootdir + "/" + filename
-            with open(path) as fr:
-                name,day,month,year,date=GetDateFromFile(fr)
-                print filename, name
-                # 设置爬取保存位置
-                moviepath = "/home/hadoop/桌面/MovieComp/MovieBaiduIndex/RawJpg/" + str(
-                    year) + "/" + filename + "(" + date + ")"
-                if os.path.exists(moviepath):
-                    continue
-                else:
-                    os.mkdir(moviepath)
-                    os.mkdir(moviepath + "/" + "raw")
-                    os.mkdir(moviepath + "/" + "crop")
-                    os.mkdir(moviepath + "/" + "zoom")
-                try:
-                    deal(name.decode("utf-8"), year, month, day, moviepath,filename)
-                except:
-                    # 错误记录
-                    with open("/home/hadoop/桌面/errorRecord"+otherStyleTime,"w") as f:
-                        f.write(name+str(filename))
-                        f.write(str(year))
-                        f.write('\n')
-                    print name, filename,year,"Error"
+#判断ViewBox是否存在
+def ExistBox(browser):
+    try:
+        browser.find_element_by_xpath('//div[@id="viewbox"]')
+        return True
+    except:
+        return False
+
 
 if __name__ == '__main__':
     now = datetime.datetime.now()
