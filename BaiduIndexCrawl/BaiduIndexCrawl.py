@@ -4,11 +4,20 @@ from selenium import webdriver
 from selenium.webdriver.common.action_chains import ActionChains
 import time
 import Image
-import os
-import datetime
 import pytesseract
 import re
+import subprocess
+import MySQLdb
+import  os
 
+#截取图片保存路径
+path=os.getcwd()
+
+global conn
+global cur
+#数据库连接
+conn = MySQLdb.connect(host='127.0.0.1', user='root', passwd='', db='Movie',charset='utf8')
+cur = conn.cursor()
 
 # 此函数用于打开浏览器
 def openbrowser():
@@ -18,60 +27,26 @@ def openbrowser():
     browser.get(url)
     # 点击网页的登录按钮
     browser.find_element_by_xpath("//ul[@class='usernav']/li[4]").click()
-    # 完成登陆后在控制台输入1
-    jud=input("登录好后输入1")
-    while 1:
-        if jud==1:
-            break
+    time.sleep(3)
+    #传入账号密码
+    account=""
+    passwd=""
+    try:
+        browser.find_element_by_id("TANGRAM_11__password").send_keys(account)
+        browser.find_element_by_id("TANGRAM_11__userName").send_keys(passwd)
+        browser.find_element_by_id("TANGRAM_11__submit").click()
+    except:
+        browser.find_element_by_id("TANGRAM_12__password").send_keys(account)
+        browser.find_element_by_id("TANGRAM_12__userName").send_keys(passwd)
+        browser.find_element_by_id("TANGRAM_12__submit").click()
+    time.sleep(3)
 
-#从文件获取名字和日期
-def GetDateFromFile(fr):
-    line = fr.readline()
-    # 得到名字
-    name = line.split(":")[1].replace("\n", "")
-    fr.readline()
-    # 得到日期
-    date = fr.readline().split(":")[1].replace("\n", "").split("（")[0]
-    day = date.split("-")[2]
-    month = date.split("-")[1]
-    year = date.split("-")[0]
-    return name,day,month,year,date
-
-
-def StartCrawl(year):
-    # 电影名字和上映日期的文件所在文件位置
-    rootdir = "/home/hadoop/桌面/MovieComp/MovieDescriptionData/" + str(year)
-    for parent, dirnames, filenames in os.walk(rootdir):
-        for filename in filenames:
-            path = rootdir + "/" + filename
-            with open(path) as fr:
-                name,day,month,year,date=GetDateFromFile(fr)
-                print filename, name
-                # 设置爬取保存位置
-                moviepath = "/home/hadoop/桌面/MovieComp/MovieBaiduIndex/RawJpg/" + str(
-                    year) + "/" + filename + "(" + date + ")"
-                if os.path.exists(moviepath):
-                    continue
-                else:
-                    os.mkdir(moviepath)
-                    os.mkdir(moviepath + "/" + "raw")
-                    os.mkdir(moviepath + "/" + "crop")
-                    os.mkdir(moviepath + "/" + "zoom")
-                try:
-                    deal(name.decode("utf-8"), year, month, day, moviepath,filename)
-                except:
-                    # 错误记录
-                    with open("/home/hadoop/桌面/errorRecord"+otherStyleTime,"w") as f:
-                        f.write(name+str(filename))
-                        f.write(str(year))
-                        f.write('\n')
-                    print name, filename,year,"Error"
 
 # name 关键词（电影）
 # year,month,day 电影的上映日期
 # path 数据保存路径
 # 点击网页元素
-def deal(name,year,month,day,path,filename):
+def deal(name,year,month,day):
     # 清空网页输入框
     browser.find_element_by_id("schword").clear()
     # 写入需要搜索的百度指数
@@ -82,10 +57,10 @@ def deal(name,year,month,day,path,filename):
     except:
         browser.find_element_by_id("schsubmit").click()
     time.sleep(2)
-    fyear,fmonth,ayear,amonth=CalculateDate(year,month,day)
+    fyear,fmonth,ayear,amonth=CalculateDate(year,month)
     # 点击网页上的开始日期
-    browser.find_element_by_xpath("//span[@class='selectA rangeDate']").click()
-    browser.find_element_by_xpath("//a[@href='#cust']").click()
+    browser.maximize_window()
+    browser.find_elements_by_xpath("//div[@class='box-toolbar']/a")[6].click()
     browser.find_elements_by_xpath("//span[@class='selectA yearA']")[0].click()
     browser.find_element_by_xpath("//span[@class='selectA yearA slided']//div//a[@href='#" + str(fyear) + "']").click()
     browser.find_elements_by_xpath("//span[@class='selectA monthA']")[0].click()
@@ -103,11 +78,11 @@ def deal(name,year,month,day,path,filename):
     # 闰年处理
     if int(year) == 2012 or int(year) == 2016:
         Monthdict['02'] = 29
-    CollectIndex(Monthdict,path,fyear,fmonth,day,name,year,filename)
+    return CollectIndex(Monthdict,fyear,fmonth,day,name)
 
 
 #计算需要选择的日期——电影上映前后一个月
-def CalculateDate(year,month,day):
+def CalculateDate(year,month):
     if year=='2010':
         fyear=2011
         fmonth='01'
@@ -115,9 +90,9 @@ def CalculateDate(year,month,day):
         fyear=year
         if int(month)==1:
             fmonth='12'
-            fyear=year-1
+            fyear=str(int(year)-1)
         else:
-            fmonth=int(month)-1
+            fmonth=str(int(month)-1)
     if len(fmonth)<2:
         fmonth='0'+fmonth
     if year=='2010':
@@ -127,16 +102,16 @@ def CalculateDate(year,month,day):
         ayear=year
         if int(month) + 1==13:
             amonth = '01'
-            ayear=int(year)+1
+            ayear=str(int(year)+1)
         else:
-            amonth = int(month) + 1
-    if(len(amonth)<2):
+            amonth = str(int(month) + 1)
+    if len(amonth)<2:
        amonth='0'+amonth
     return fyear,fmonth,ayear,amonth
 
-def CollectIndex(Monthdict,path,fyear,fmonth,day,name,year,filename):
-    wf = open('/home/hadoop/桌面/MovieComp/MovieBaiduIndex/IndexData/' + str(year)+'/'+filename, 'a')
-    wf.write(name.encode('utf-8')+'\n[')
+def CollectIndex(Monthdict,fyear,fmonth,day,name):
+    #初始化输出String
+    OutputString=name.encode("utf-8")+'\n['
     x_0 = 1
     y_0 = 1
     # 根据起始具体日子计算鼠标的初始位置
@@ -163,37 +138,44 @@ def CollectIndex(Monthdict,path,fyear,fmonth,day,name,year,filename):
         day = int(day) + 1
         time.sleep(1)
 	#获取Code
-        code = GetTheFxxkingCode(fyear, fmonth, day, name, path, xoyelement, x_0, y_0)
+        code = GetTheCode(fyear, fmonth, day, name,path, xoyelement, x_0, y_0)
 	#ViewBox不出现的循环
-	cot=0
-	jud=True
+        cot=0
+        jud=True
+        # print code
         while(code==None):
-	    cot+=1
-            code=GetTheFxxkingCode(fyear,fmonth,day,name,path,xoyelement,x_0, y_0)
-	    if cot>=6:
-		jud=False
-		break
-	if jud:
-	   anwserCode=code.group()
-	else:
-	   anwserCode=str(-1)
-        print anwserCode
-        if int(day)<10:
-            day='0'+str(int(day))
-        if int(fmonth)<10:
-            fmonth='0'+str(int(fmonth))
-        wf.write(str(fyear)+'-'+str(fmonth)+'-'+str(day)+':'+anwserCode+',')
+            cot+=1
+            code=GetTheCode(fyear,fmonth,day,name,path,xoyelement,x_0, y_0)
+            if cot>=6:
+                jud=False
+                break
+        if jud:
+           anwserCode=code.group()
+           print anwserCode
+        else:
+            anwserCode=str(-1)
+            if int(day)<10:
+                day='0'+str(int(day))
+            if int(fmonth)<10:
+                fmonth='0'+str(int(fmonth))
+        OutputString+=str(fyear)+'-'+str(fmonth)+'-'+str(day)+':'+str(anwserCode)+','
         x_0 = x_0 + 13.51
-    wf.write(']\n')
-    wf.close()
+    OutputString+=']\n'
+    print OutputString
+    return OutputString.decode('utf-8')
 
-def GetTheFxxkingCode(fyear,fmonth,day,name,path,xoyelement,x_0, y_0):
+def GetTheCode(fyear,fmonth,day,name,path,xoyelement,x_0, y_0):
     ActionChains(browser).move_to_element_with_offset(xoyelement, x_0, y_0).perform()
     #鼠标重复操作直到ViewBox出现
+    cot=0
     while (ExistBox(browser)==False):
+        cot+=1
         ActionChains(browser).move_to_element_with_offset(xoyelement, x_0, y_0).perform()
         if ExistBox(browser)==True:
             break
+        if cot==6:
+            return None
+
     imgelement = browser.find_element_by_xpath('//div[@id="viewbox"]')
     locations = imgelement.location
     printString = str(fyear) + "-" + str(fmonth) + "-" + str(day)
@@ -201,8 +183,8 @@ def GetTheFxxkingCode(fyear,fmonth,day,name,path,xoyelement,x_0, y_0):
     l = len(name)
     if l > 8:
         l = 8
-    rangle = (int(int(locations['x'])) + l * 12 + 32, int(int(locations['y'])) + 28,
-              int(int(locations['x'])) + l * 12 + 32 + 70,
+    rangle = (int(int(locations['x'])) + l * 10 + 38, int(int(locations['y'])) + 28,
+              int(int(locations['x'])) + l * 10 + 38 + 75,
               int(int(locations['y'])) + 56)
     #保存截图
     browser.save_screenshot(str(path) + "/raw/" + printString + ".png")
@@ -242,10 +224,67 @@ def ExistBox(browser):
         return False
 
 
+#-------------------------------------以下为数据库交互的代码-----------------------------------------#
+
+
+
+#更改某表某id的Status
+def AlterStatus(tablename,status,id):
+    cur.execute("update "+tablename+" set "+tablename+"_status="+str(status)+" where "+tablename+"_id="+str(id)+";")
+    conn.commit()
+
+
+#根据Task_id获取单条Input
+def GetInputFromDB():
+    cur.execute("select input_id,name,date from input where input_status=0 or input_status=1 ")
+    inputs=cur.fetchall()
+    i=0
+    if len(inputs) ==0:
+        return -1
+    input_item = inputs[i]
+    return input_item
+
+
+#将结果保存到数据库
+def SaveResultToDB(input_id,result,name):
+    # print ("insert into task_1_result value(" + str(input_id) + ",\"" + name + "\",\"" + result + "\");")
+    cur.execute("insert into task_1_result value("+str(input_id)+",\""+name+"\",\""+result+"\");")
+    conn.commit()
+
+
+
 if __name__ == '__main__':
-    now = datetime.datetime.now()
-    otherStyleTime = now.strftime("%Y-%m-%d %H:%M")
     openbrowser()
-    StartCrawl(2010)
+    spider_type = 1
+    while(True):
+        #获取任务
+        input_item=GetInputFromDB()
+        # print input_item
+        while input_item!=-1:
+            input_id=input_item[0]
+            name=input_item[1]
+            day=input_item[2].split('-')[2]
+            month = input_item[2].split('-')[1]
+            year = input_item[2].split('-')[0]
+            print "正在获取",name.encode("utf-8"),"的百度指数"
+                #调用爬虫方法获取结果
+            # try:
+            resultString=deal(name,year,month,day).replace("\"","")
+            # except:
+            #     print name,'Error'
+            #     AlterStatus("input", -1, input_id)
+            #     input_item = GetInputFromDB()
+            #     continue
+            print "将结果保存到数据库"
+            #保存到数据库中
+            SaveResultToDB(input_id,resultString,name)
+            AlterStatus("input", 2, input_id)
+            #获取下一条
+            conn.commit()
+            input_item = GetInputFromDB()
+            print "获取下一条数据"
+        print "休息"
+        time.sleep(1)
+
 
 
