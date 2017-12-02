@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-# 此程序用于读取本地电影名与日期并且爬取该电影的百度指数，然后截图保存到本地截取每张图的数据
+# 此程序用于读取数据库电影名与日期并且爬取该电影的百度指数，然后保存到数据库中
 from selenium import webdriver
 from selenium.webdriver.common.action_chains import ActionChains
 import time
