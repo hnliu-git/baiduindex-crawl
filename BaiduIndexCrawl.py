@@ -58,14 +58,16 @@ def load_req():
     global name
     #获取任务
     input_item=SQLTools.GetInputFromDB()
+    #(keyword,time)
     if input_item!=-1:
         name=input_item[0]
-        print input_item[4]
-        day=input_item[4].split('-')[2]
-        month = input_item[4].split('-')[1]
-        year = input_item[4].split('-')[0]
-        print "正在获取",input_item[1],name.encode("utf-8"),"的百度指数"
-        return [name,year,month,day,[input_item[2],input_item[3]]]
+        print input_item[1]
+        day=input_item[1].split('-')[2]
+        month = input_item[1].split('-')[1]
+        year = input_item[1].split('-')[0]
+        input_id=input_item[2]
+        print "正在获取",name.encode("utf-8"),"的百度指数"
+        return [name,year,month,day,input_id]
     else:
         return False
 
@@ -95,6 +97,7 @@ def init_spider():
 
 #执行Spider 返回数据结果
 def exec_spider(request):
+    #request(name,year,month,day)
     global browser
     try:
         name=request[0]
@@ -328,12 +331,12 @@ if __name__ == '__main__':
             exit(2)
         else:
             request = status
+            #request=[name,year,month,day,id]
         # status记录结果
         status=exec_spider(request)
         if status is False:
             print name,'Error'
-            SQLTools.AlterStatus("update baidu_index_actor set status=-1 "
-                                 "where actor_id="+str(request[4][0])+" and movie_id="+str(request[4][1])+";")
+            SQLTools.AlterStatus("update baidu_index set status=-1 where input_id="+str(request[4])+";")
             continue
         else:
             resultString=status.replace("\"","")
@@ -341,8 +344,7 @@ if __name__ == '__main__':
         ticot+=1
         #保存到数据库中
         SQLTools.SaveResultToDB(resultString,request[4])
-        SQLTools.AlterStatus("update baidu_index_actor set status=1 "
-                             "where actor_id=" + str(request[4][0]) + " and movie_id=" + str(request[4][1]) + ";")
+        SQLTools.AlterStatus("update baidu_index set status=1 where input_id=" + str(request[4]) + ";")
         #获取下一条
         print "休息"
         time.sleep(10)
