@@ -1,0 +1,21 @@
+<!--global host-->
+<!--global user-->
+<!--global passwd-->
+<!--global db-->
+<!--global conn-->
+<!--global cur-->
+<!--global charset-->
+<!--global baiduAccounnt-->
+<!--global baiduPasswd-->
+<Attribute type="BaiduIndex">
+    <host>127.0.0.1</host>
+    <user>root</user>
+    <passwd>hadoop</passwd>
+    <db>baidu_index</db>
+    <charset>utf8</charset>
+    <!--<baiduAccount>13148999121</baiduAccount>-->
+    <!--<baiduPasswd>A77766654</baiduPasswd>-->
+    <baiduAccount>Butterbeer1601</baiduAccount>
+    <baiduPasswd>,,..8523384</baiduPasswd>
+    <spidertype>1</spidertype>
+</Attribute>
